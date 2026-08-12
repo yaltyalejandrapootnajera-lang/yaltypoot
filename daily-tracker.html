@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daily Operations Board</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+  :root {
+    /* ── Mercado Libre palette ── */
+    --ml-yellow:#FFE600;
+    --ml-blue:#2D3277;
+    --ml-blue-mid:#3F4499;
+    --ml-blue-light:#EEEFFE;
+
+    --bg:#F5F5F5;
+    --surface:#FFFFFF;
+    --surface2:#F0F0F5;
+    --surface3:#E8E8F0;
+    --border:#D8D8E8;
+    --border-light:#C0C0D8;
+
+    --accent:#2D3277;
+    --accent-dim:rgba(45,50,119,0.08);
+    --green:#00A650;      --green-dim:rgba(0,166,80,0.10);
+    --yellow:#E8A000;     --yellow-dim:rgba(232,160,0,0.12);
+    --red:#E3262F;        --red-dim:rgba(227,38,47,0.10);
+
+    --text:#1A1A2E;
+    --text-muted:#6B6B8A;
+    --text-dim:#4A4A6A;
+    --mono:'JetBrains Mono',monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:14px;min-height:100vh;}
+
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:0 24px;background:var(--ml-blue);border-bottom:3px solid var(--ml-yellow);position:sticky;top:0;z-index:200;min-height:56px;}
+  .topbar-left{display:flex;align-items:center;gap:14px;}
+  .ml-logo{background:var(--ml-yellow);border-radius:6px;padding:4px 10px;font-size:13px;font-weight:900;color:var(--ml-blue);letter-spacing:-.02em;line-height:1;}
+  .logo-dot{display:none;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  .topbar-title{font-size:14px;font-weight:700;letter-spacing:-.01em;color:#fff;}
+  .topbar-sub{font-size:10px;color:rgba(255,255,255,.55);font-family:var(--mono);margin-top:1px;}
+  .date-badge{font-family:var(--mono);font-size:11px;color:rgba(255,255,255,.7);background:rgba(255,255,255,.1);padding:5px 12px;border-radius:6px;border:1px solid rgba(255,255,255,.2);}
+  .btn-save{background:var(--ml-yellow);color:var(--ml-blue);border:none;padding:7px 18px;border-radius:7px;font-size:12px;font-weight:800;cursor:pointer;transition:opacity .15s;}
+  .btn-save:hover{opacity:.85;}
+  .btn-refresh{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);padding:7px 10px;border-radius:7px;font-size:13px;cursor:pointer;transition:opacity .15s;}
+  .btn-refresh:hover{opacity:.75;}
+
+  .tabs-row{display:flex;gap:3px;padding:12px 24px 0;border-bottom:2px solid var(--border);overflow-x:auto;background:var(--surface2);}
+  .tab{padding:8px 18px;border-radius:7px 7px 0 0;font-size:12px;font-weight:600;cursor:pointer;border:1px solid transparent;border-bottom:none;color:var(--text-muted);background:transparent;transition:all .15s;white-space:nowrap;display:flex;align-items:center;gap:6px;user-select:none;}
+  .tab:hover{color:var(--ml-blue);background:var(--ml-blue-light);}
+  .tab.active{color:var(--ml-blue);background:var(--surface);border-color:var(--border);border-bottom-color:var(--surface);margin-bottom:-2px;border-top:2px solid var(--ml-yellow);}
+  .tab .sdot{width:6px;height:6px;border-radius:50%;background:var(--border-light);flex-shrink:0;}
+  .tab.ok .sdot{background:var(--green);} .tab.warn .sdot{background:var(--yellow);} .tab.bad .sdot{background:var(--red);}
+  .tab-sep{width:1px;background:var(--border);margin:12px 6px 0;}
+  .plans-count{background:var(--ml-blue);color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:10px;min-width:16px;text-align:center;}
+
+  .main{padding:20px 24px 80px;}
+  .sc-panel{display:none;} .sc-panel.active{display:block;}
+
+  .sc-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px;}
+  .sc-left{display:flex;align-items:center;gap:16px;}
+  .sc-name{font-size:24px;font-weight:800;letter-spacing:-.03em;}
+  .field-label{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px;}
+  .inline-input{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 10px;font-size:12px;font-family:'Inter',sans-serif;outline:none;transition:border-color .15s;width:180px;}
+  .inline-input:focus{border-color:var(--ml-blue);}
+  .inline-input::placeholder{color:var(--text-muted);}
+
+  .sc-metrics{display:flex;gap:10px;flex-wrap:wrap;}
+  .metric-pill{background:var(--surface);border:2px solid var(--border);border-radius:9px;padding:10px 14px;display:flex;flex-direction:column;gap:2px;min-width:120px;box-shadow:0 1px 4px rgba(45,50,119,.06);}
+  .metric-pill.vol{border-color:var(--ml-blue);} .metric-pill.fore{border-color:var(--green);}
+  .metric-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);}
+  .metric-pill.vol .metric-label{color:var(--ml-blue);} .metric-pill.fore .metric-label{color:var(--green);}
+  .metric-input{background:transparent;border:none;outline:none;font-family:var(--mono);font-size:20px;font-weight:700;color:var(--text);width:100%;max-width:110px;}
+  .metric-input::placeholder{color:var(--border-light);}
+
+  .view-toggle-bar{display:flex;align-items:center;margin-bottom:14px;}
+  .view-toggle{display:flex;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:3px;gap:3px;}
+  .vt-btn{padding:5px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:none;background:transparent;color:var(--text-muted);transition:all .15s;}
+  .vt-btn:hover{color:var(--ml-blue);}
+  .vt-btn.active{background:var(--ml-blue);color:#fff;box-shadow:0 1px 4px rgba(45,50,119,.25);}
+
+  /* DM VIEW */
+  .dm-list{display:flex;flex-direction:column;gap:10px;}
+  .dm-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(45,50,119,.06);}
+  .dm-card-header{display:flex;align-items:center;padding:11px 16px;gap:10px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;transition:background .12s;background:var(--surface);}
+  .dm-card-header:hover{background:var(--ml-blue-light);}
+  .dm-icon{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+  .dm-title{font-size:13px;font-weight:700;letter-spacing:.04em;}
+  .dm-badge{font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;border:1px solid;margin-left:auto;}
+  .dm-toggle{font-size:10px;color:var(--text-muted);flex-shrink:0;margin-left:8px;}
+
+  /* KPI TABLE */
+  .kpi-table{width:100%;border-collapse:collapse;}
+  .kpi-table thead th{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ml-blue);padding:8px 10px;text-align:left;border-bottom:2px solid var(--ml-yellow);background:var(--ml-blue-light);}
+  .kpi-table thead th.center{text-align:center;}
+  .kpi-row td{padding:0;border-bottom:1px solid var(--border);}
+  .kpi-row:last-child td{border-bottom:none;}
+  .kpi-main-row{display:flex;align-items:center;width:100%;min-height:44px;}
+  .kpi-expand-btn{width:32px;height:44px;flex-shrink:0;background:transparent;border:none;border-right:1px solid var(--border);cursor:pointer;color:var(--text-muted);font-size:11px;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+  .kpi-expand-btn:hover{background:var(--surface3);} .kpi-expand-btn.open{color:var(--accent);}
+  .kpi-name-cell{flex:1;padding:0 10px;font-size:12px;font-weight:500;color:var(--text-dim);}
+  .kpi-has-notes{color:var(--accent) !important;}
+  /* VALUE cell */
+  .kpi-val-cell{width:90px;padding:0 8px;display:flex;align-items:center;justify-content:flex-end;gap:3px;border-right:1px solid var(--border);}
+  .kpi-val-input{background:transparent;border:none;outline:none;font-family:var(--mono);font-size:13px;font-weight:700;color:var(--text);width:60px;text-align:right;}
+  .kpi-val-input::placeholder{color:var(--border-light);}
+  .kpi-unit{font-size:10px;color:var(--text-muted);}
+  /* TARGET cell */
+  .kpi-target-cell{width:90px;padding:0 8px;display:flex;align-items:center;justify-content:flex-end;gap:3px;border-right:1px solid var(--border);}
+  .kpi-target-val{font-family:var(--mono);font-size:12px;color:var(--text-muted);}
+  .kpi-target-empty{font-size:10px;color:var(--border-light);}
+  /* STATUS cell */
+  .kpi-status-cell{width:110px;padding:0 10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .status-toggle{display:flex;gap:3px;}
+  .st-btn{width:28px;height:24px;border-radius:5px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;transition:all .12s;color:var(--text-muted);}
+  .st-btn:hover{background:var(--surface3);}
+  .st-btn.active-g{background:var(--green-dim);border-color:var(--green);color:var(--green);}
+  .st-btn.active-y{background:var(--yellow-dim);border-color:var(--yellow);color:var(--yellow);}
+  .st-btn.active-r{background:var(--red-dim);border-color:var(--red);color:var(--red);}
+
+  .kpi-detail{display:none;background:var(--surface3);border-top:1px solid var(--border);}
+  .kpi-detail.open{display:block;}
+  .kpi-detail-inner{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px 16px;}
+  @media(max-width:600px){.kpi-detail-inner{grid-template-columns:1fr;}}
+  .detail-card{background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:10px 12px;transition:border-color .15s;}
+  .detail-card:focus-within{border-color:var(--accent);}
+  .detail-card-header{display:flex;align-items:center;gap:6px;margin-bottom:6px;}
+  .detail-card-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);}
+  .detail-textarea{width:100%;background:transparent;border:none;color:var(--text);font-size:12px;font-family:'Inter',sans-serif;line-height:1.6;resize:vertical;outline:none;min-height:56px;}
+  .detail-textarea::placeholder{color:var(--text-muted);}
+  .kpi-row.status-off .kpi-name-cell{color:var(--red) !important;}
+  .kpi-row.status-risk .kpi-name-cell{color:var(--yellow) !important;}
+
+  /* KPI VIEW */
+  .kpi-view{display:flex;flex-direction:column;gap:10px;}
+  .kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+  .kpi-card-header{display:flex;align-items:center;padding:11px 16px;gap:10px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;transition:background .12s;border-left:3px solid var(--ml-yellow);}
+  .kpi-card-header:hover{background:var(--ml-blue-light);}
+  .kpi-card-title{font-size:13px;font-weight:700;color:var(--text);flex:1;}
+  .kpi-card-unit{font-size:11px;color:var(--text-muted);font-family:var(--mono);}
+  .kpi-card-badge{font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;border:1px solid;margin-left:4px;}
+  .kpi-card-toggle{font-size:10px;color:var(--text-muted);margin-left:8px;}
+  .dm-row{display:flex;align-items:center;min-height:46px;border-bottom:1px solid var(--border);}
+  .dm-row:last-child{border-bottom:none;}
+  .dm-row-expand{width:32px;height:46px;flex-shrink:0;background:transparent;border:none;border-right:1px solid var(--border);cursor:pointer;color:var(--text-muted);font-size:11px;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+  .dm-row-expand:hover{background:var(--surface3);} .dm-row-expand.open{color:var(--accent);}
+  .dm-row-label{display:flex;align-items:center;gap:7px;width:160px;flex-shrink:0;padding:0 12px;border-right:1px solid var(--border);}
+  .dm-row-icon{font-size:13px;} .dm-row-name{font-size:11px;font-weight:700;letter-spacing:.03em;}
+  .dm-row-val{flex:1;padding:0 12px;display:flex;align-items:center;justify-content:flex-end;gap:4px;border-right:1px solid var(--border);}
+  .dm-row-target{width:100px;padding:0 12px;display:flex;align-items:center;justify-content:flex-end;border-right:1px solid var(--border);}
+  .dm-row-status{width:110px;padding:0 12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .dm-row-detail{display:none;background:var(--surface3);border-top:1px solid var(--border);}
+  .dm-row-detail.open{display:block;}
+
+  /* PLANES PANEL */
+  #planesPanel{display:none;} #planesPanel.active{display:block;}
+  .planes-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;}
+  .planes-title{font-size:22px;font-weight:800;letter-spacing:-.02em;}
+  .planes-filters{display:flex;gap:6px;flex-wrap:wrap;}
+  .filter-btn{padding:5px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;}
+  .filter-btn:hover{background:var(--surface2);}
+  .filter-btn.active-filter{background:var(--surface2);color:var(--text);border-color:var(--border-light);}
+  .filter-btn.f-open.active-filter{border-color:var(--red);color:var(--red);}
+  .filter-btn.f-follow.active-filter{border-color:var(--yellow);color:var(--yellow);}
+  .filter-btn.f-closed.active-filter{border-color:var(--green);color:var(--green);}
+  .planes-stats{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;}
+  .pstat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px;display:flex;flex-direction:column;gap:4px;flex:1;min-width:100px;}
+  .pstat-num{font-family:var(--mono);font-size:28px;font-weight:700;} .pstat-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);}
+  .pstat.s-open{border-color:rgba(239,68,68,.3);} .pstat.s-open .pstat-num{color:var(--red);}
+  .pstat.s-follow{border-color:rgba(245,158,11,.3);} .pstat.s-follow .pstat-num{color:var(--yellow);}
+  .pstat.s-closed{border-color:rgba(34,197,94,.3);} .pstat.s-closed .pstat-num{color:var(--green);}
+  .pstat.s-total .pstat-num{color:var(--accent);}
+  .planes-list{display:flex;flex-direction:column;gap:8px;}
+  .plan-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+  .plan-card:hover{border-color:var(--border-light);}
+  .plan-card-header{display:flex;align-items:center;gap:10px;padding:12px 16px;flex-wrap:wrap;}
+  .plan-sc-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:5px;background:var(--accent-dim);border:1px solid rgba(79,124,255,.3);color:var(--accent);font-family:var(--mono);}
+  .plan-dm-badge{font-size:10px;font-weight:600;padding:2px 8px;border-radius:5px;border:1px solid;}
+  .plan-kpi-name{font-size:13px;font-weight:600;flex:1;}
+  .plan-status-sel{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;font-size:11px;font-weight:600;cursor:pointer;outline:none;font-family:'Inter',sans-serif;}
+  .plan-status-sel.sel-open{border-color:var(--red);color:var(--red);}
+  .plan-status-sel.sel-follow{border-color:var(--yellow);color:var(--yellow);}
+  .plan-status-sel.sel-closed{border-color:var(--green);color:var(--green);}
+  .plan-body{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--border);}
+  @media(max-width:600px){.plan-body{grid-template-columns:1fr;}}
+  .plan-section{padding:12px 16px;} .plan-section:first-child{border-right:1px solid var(--border);}
+  .plan-sec-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:6px;display:flex;align-items:center;gap:5px;}
+  .plan-text{font-size:12px;color:var(--text-dim);line-height:1.6;white-space:pre-wrap;}
+  .plan-empty{font-size:12px;color:var(--text-muted);font-style:italic;}
+  .plans-empty-state{text-align:center;padding:60px 20px;color:var(--text-muted);}
+  .plans-empty-state .big-icon{font-size:48px;margin-bottom:12px;}
+
+  .summary-bar{display:flex;align-items:center;gap:8px;padding:10px 24px;background:var(--ml-blue);border-top:3px solid var(--ml-yellow);position:fixed;bottom:0;left:0;right:0;z-index:100;flex-wrap:wrap;}
+  .chip{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;}
+  .chip-dot{width:6px;height:6px;border-radius:50%;}
+  .chip.g{border-color:rgba(0,166,80,.5);} .chip.g .chip-dot{background:var(--green);}
+  .chip.y{border-color:rgba(255,230,0,.5);} .chip.y .chip-dot{background:var(--ml-yellow);}
+  .chip.r{border-color:rgba(227,38,47,.5);} .chip.r .chip-dot{background:var(--red);}
+  .divider{width:1px;height:18px;background:rgba(255,255,255,.2);margin:0 2px;}
+  .toast{position:fixed;bottom:56px;right:24px;background:var(--ml-blue);color:var(--ml-yellow);border:2px solid var(--ml-yellow);padding:9px 18px;border-radius:8px;font-size:12px;font-weight:700;opacity:0;transform:translateY(8px);transition:all .25s;pointer-events:none;z-index:999;}
+  .toast.show{opacity:1;transform:translateY(0);}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="ml-logo">ML</div>
+    <div>
+      <div class="topbar-title">Daily Operations Board</div>
+      <div class="topbar-sub">Service Center · Delivery Model · KPI Tracking</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <div class="date-badge" id="dateBadge"></div>
+    <button class="btn-refresh" onclick="loadFromSheets()" title="Actualizar datos">🔄</button>
+    <button class="btn-save" id="saveBtn" onclick="saveAll()">💾 Guardar</button>
+  </div>
+</div>
+
+<div class="tabs-row" id="tabsRow"></div>
+<div class="main">
+  <div id="scPanels"></div>
+  <div id="planesPanel"></div>
+</div>
+<div class="summary-bar" id="summaryBar"></div>
+<div class="toast" id="toast">✓ Guardado</div>
+
+<script>
+/* ═══ CATÁLOGOS ═══ */
+const SCS = ['SCM1','SCN1','SCP1','SMD1','SPY1'];
+
+const DM_CATALOG = [
+  { key:'CROWD',          label:'Crowd',          icon:'👥', color:'#a78bfa' },
+  { key:'DELIVERY_CELL',  label:'Delivery Cell',  icon:'📦', color:'#38bdf8' },
+  { key:'MLP',            label:'MLP',            icon:'🏪', color:'#34d399' },
+  { key:'RENTALS',        label:'Rentals',        icon:'🔑', color:'#f59e0b' },
+  { key:'SERVICE_PARTNER',label:'Service Partner',icon:'🤝', color:'#f472b6' },
+];
+
+// KPIs that apply to SERVICE_PARTNER only
+const SP_KPI_KEYS = ['delivery_success','delay_total'];
+
+const KPI_CATALOG = [
+  { key:'delivery_success', label:'Delivery Success',           unit:'%' },
+  { key:'adh_mtto',         label:'Adherencia Mtto Preventivo', unit:'%' },
+  { key:'buffer_svc',       label:'Buffer SVC %',               unit:'%' },
+  { key:'cps_lm',           label:'CPS LM',                     unit:''  },
+  { key:'csat_driver',      label:'CSAT Driver',                unit:'%' },
+  { key:'delay_total',      label:'% Delay Total',              unit:'%' },
+  { key:'delay_lm',         label:'% Delay LM',                 unit:'%' },
+  { key:'dpph',             label:'DPPH (Real)',                 unit:''  },
+  { key:'attempts_22',      label:'% Attempts > 22hrs',         unit:'%' },
+  { key:'oot',              label:'OOT',                        unit:'%' },
+  { key:'oot_30',           label:'OOT 3.0',                    unit:'%' },
+  { key:'util_pura',        label:'Utilización Pura',           unit:'%' },
+  { key:'util_disp',        label:'Utilización Disponible',     unit:'%' },
+  { key:'cal_manejo',       label:'Calificación de Manejo',     unit:'%' },
+  { key:'spr_lm',           label:'SPR LM',                     unit:''  },
+  { key:'tmec_adh',         label:'TMEC % Adherencia DM',       unit:'%' },
+];
+
+// Targets per SC — keyed by KPI key. '' = no target defined.
+const TARGETS = {
+  SCM1: {
+    delivery_success:'99.60%', adh_mtto:'90%',    buffer_svc:'3.00%',
+    cps_lm:'$28.78',           csat_driver:'61%', delay_total:'3.06%',
+    delay_lm:'0.37%',          dpph:'13.89',      attempts_22:'0.11%',
+    oot:'93.00%',              oot_30:'',         util_pura:'95.0%',
+    util_disp:'95.0%',         cal_manejo:'',     spr_lm:'80.45',
+    tmec_adh:'80%',
+  },
+  SCN1: {
+    delivery_success:'99.10%', adh_mtto:'90%',    buffer_svc:'3.00%',
+    cps_lm:'$33.67',           csat_driver:'61%', delay_total:'2.89%',
+    delay_lm:'0.20%',          dpph:'11.16',      attempts_22:'0.65%',
+    oot:'93%',                 oot_30:'85.0%',    util_pura:'90.0%',
+    util_disp:'95%',           cal_manejo:'93%',  spr_lm:'80.45',
+    tmec_adh:'80%',
+  },
+  SCP1: {
+    delivery_success:'99.33%', adh_mtto:'90%',    buffer_svc:'3.00%',
+    cps_lm:'$32.54',           csat_driver:'61%', delay_total:'2.89%',
+    delay_lm:'0.04%',          dpph:'11.75',      attempts_22:'0.31%',
+    oot:'93.00%',              oot_30:'',         util_pura:'94.8%',
+    util_disp:'',              cal_manejo:'93.9%',spr_lm:'80.45',
+    tmec_adh:'80%',
+  },
+  SMD1: {
+    delivery_success:'99.10%', adh_mtto:'90%',    buffer_svc:'3.00%',
+    cps_lm:'$28.46',           csat_driver:'61%', delay_total:'2.89%',
+    delay_lm:'0.37%',          dpph:'11.16',      attempts_22:'0.30%',
+    oot:'93%',                 oot_30:'85.0%',    util_pura:'91.1%',
+    util_disp:'',              cal_manejo:'93%',  spr_lm:'80.45',
+    tmec_adh:'80%',
+  },
+  SPY1: {
+    delivery_success:'99.10%', adh_mtto:'90%',    buffer_svc:'3.00%',
+    cps_lm:'$33.40',           csat_driver:'70%', delay_total:'2.89%',
+    delay_lm:'0.13%',          dpph:'11.4',       attempts_22:'0.57%',
+    oot:'93%',                 oot_30:'90.0%',    util_pura:'90.0%',
+    util_disp:'',              cal_manejo:'93%',  spr_lm:'80.45',
+    tmec_adh:'80%',
+  },
+};
+
+// SP targets are the same for all SCs
+const SP_TARGETS = {
+  SCM1:{ delivery_success:'99.60%', delay_total:'3.06%' },
+  SCN1:{ delivery_success:'99.10%', delay_total:'2.89%' },
+  SCP1:{ delivery_success:'99.33%', delay_total:'2.89%' },
+  SMD1:{ delivery_success:'99.10%', delay_total:'2.89%' },
+  SPY1:{ delivery_success:'99.10%', delay_total:'2.89%' },
+};
+
+const PLAN_STATUSES = {
+  open:  { label:'Abierto',        selCls:'sel-open'   },
+  follow:{ label:'En Seguimiento', selCls:'sel-follow' },
+  closed:{ label:'Cerrado',        selCls:'sel-closed' },
+};
+
+/* ═══ STATE ═══ */
+function uid(){ return Math.random().toString(36).slice(2,9); }
+
+function kpisForDM(dmKey){
+  return dmKey==='SERVICE_PARTNER'
+    ? KPI_CATALOG.filter(k=>SP_KPI_KEYS.includes(k.key))
+    : KPI_CATALOG;
+}
+
+function initState(){
+  const s={scs:{}};
+  SCS.forEach(sc=>{
+    s.scs[sc]={
+      leader:'',volumen:'',forecast:'',viewMode:'dm',
+      dms:DM_CATALOG.map(cat=>({
+        id:uid(),dmKey:cat.key,
+        kpis:kpisForDM(cat.key).map(k=>({
+          key:k.key,value:'',status:'',affectation:'',actionPlan:'',planStatus:'open'
+        }))
+      }))
+    };
+  });
+  return s;
+}
+
+function getState(){
+  try{const raw=localStorage.getItem('dob_v6');if(raw){const p=JSON.parse(raw);if(p&&p.scs)return p;}}catch(e){}
+  return initState();
+}
+
+let state=getState();
+let activeView='SC_SCM1';
+let planesFilter='all';
+
+/* ═══ HELPERS ═══ */
+function todayStr(){return new Date().toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'});}
+function getDMCat(key){return DM_CATALOG.find(d=>d.key===key)||DM_CATALOG[0];}
+function getKPIDef(key){return KPI_CATALOG.find(k=>k.key===key)||{label:key,unit:''};}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+function getTarget(sc,dmKey,kpiKey){
+  if(dmKey==='SERVICE_PARTNER') return SP_TARGETS[sc]?.[kpiKey]||'';
+  return TARGETS[sc]?.[kpiKey]||'';
+}
+
+function scStatus(sc){
+  const kpis=state.scs[sc].dms.flatMap(d=>d.kpis);
+  if(kpis.some(k=>k.status==='off-track')) return 'bad';
+  if(kpis.some(k=>k.status==='at-risk'))   return 'warn';
+  if(kpis.some(k=>k.value))               return 'ok';
+  return '';
+}
+function allPlans(){
+  const out=[];
+  SCS.forEach(sc=>{state.scs[sc].dms.forEach(dm=>{dm.kpis.forEach(kpi=>{
+    if(kpi.affectation||kpi.actionPlan) out.push({sc,dmKey:dm.dmKey,dmId:dm.id,kpiKey:kpi.key,kpi});
+  });});});
+  return out;
+}
+function openPlansCount(){return allPlans().filter(p=>p.kpi.planStatus!=='closed').length;}
+
+/* ═══ TABS ═══ */
+function renderTabs(){
+  const n=openPlansCount();
+  document.getElementById('tabsRow').innerHTML=
+    SCS.map(sc=>`<div class="tab ${scStatus(sc)} ${activeView==='SC_'+sc?'active':''}" onclick="setView('SC_${sc}')">
+      <span class="sdot"></span>${sc}</div>`).join('')+
+    `<div class="tab-sep"></div>
+     <div class="tab ${activeView==='PLANES'?'active':''}" onclick="setView('PLANES')">
+       🗂 Planes ${n>0?`<span class="plans-count">${n}</span>`:''}
+     </div>`;
+}
+
+function setView(view){
+  activeView=view;
+  renderTabs();
+  document.querySelectorAll('.sc-panel').forEach(p=>p.classList.toggle('active',view==='SC_'+p.dataset.sc));
+  const pp=document.getElementById('planesPanel');
+  if(view==='PLANES'){pp.classList.add('active');renderPlanesPanel();}
+  else pp.classList.remove('active');
+  renderSummary();
+}
+
+/* ═══ SC PANELS ═══ */
+function renderScPanels(){
+  document.getElementById('scPanels').innerHTML=SCS.map(sc=>renderPanel(sc)).join('');
+}
+
+function renderPanel(sc){
+  const d=state.scs[sc];const vm=d.viewMode||'dm';
+  return `<div class="sc-panel ${activeView==='SC_'+sc?'active':''}" data-sc="${sc}">
+    <div class="sc-header">
+      <div class="sc-left">
+        <div class="sc-name">${sc}</div>
+        <div><div class="field-label">Líder</div>
+          <input class="inline-input" placeholder="Nombre del líder" value="${esc(d.leader)}"
+            oninput="state.scs['${sc}'].leader=this.value">
+        </div>
+      </div>
+      <div class="sc-metrics">
+        <div class="metric-pill vol"><span class="metric-label">📊 Volumen</span>
+          <input class="metric-input" type="text" placeholder="—" value="${esc(d.volumen)}"
+            oninput="state.scs['${sc}'].volumen=this.value;renderSummary()">
+        </div>
+        <div class="metric-pill fore"><span class="metric-label">🎯 Forecast</span>
+          <input class="metric-input" type="text" placeholder="—" value="${esc(d.forecast)}"
+            oninput="state.scs['${sc}'].forecast=this.value;renderSummary()">
+        </div>
+      </div>
+    </div>
+    <div class="view-toggle-bar">
+      <div class="view-toggle">
+        <button class="vt-btn ${vm==='dm'?'active':''}" onclick="setViewMode('${sc}','dm')">📦 Por Delivery Model</button>
+        <button class="vt-btn ${vm==='kpi'?'active':''}" onclick="setViewMode('${sc}','kpi')">📊 Por KPI</button>
+      </div>
+    </div>
+    <div id="scContent_${sc}">${vm==='dm'?renderDMView(sc):renderKPIView(sc)}</div>
+  </div>`;
+}
+
+function setViewMode(sc,mode){
+  state.scs[sc].viewMode=mode;
+  const el=document.getElementById('scContent_'+sc);
+  if(el) el.innerHTML=mode==='dm'?renderDMView(sc):renderKPIView(sc);
+  const panel=document.querySelector(`.sc-panel[data-sc="${sc}"]`);
+  if(panel) panel.querySelectorAll('.vt-btn').forEach(b=>b.classList.toggle('active',
+    (mode==='dm'&&b.textContent.includes('Delivery'))||(mode==='kpi'&&b.textContent.includes('KPI'))));
+}
+
+/* ═══ DM VIEW ═══ */
+function renderDMView(sc){
+  return `<div class="dm-list">${state.scs[sc].dms.map(dm=>renderDM(sc,dm)).join('')}</div>`;
+}
+
+function renderDM(sc,dm){
+  const cat=getDMCat(dm.dmKey);
+  const off=dm.kpis.filter(k=>k.status==='off-track').length;
+  const risk=dm.kpis.filter(k=>k.status==='at-risk').length;
+  const filled=dm.kpis.filter(k=>k.value).length;
+  let bs='',bt='';
+  if(off>0){bs=`color:var(--red);border-color:var(--red);background:var(--red-dim)`;bt=`${off} Off Track`;}
+  else if(risk>0){bs=`color:var(--yellow);border-color:var(--yellow);background:var(--yellow-dim)`;bt=`${risk} At Risk`;}
+  else if(filled>0){bs=`color:var(--green);border-color:var(--green);background:var(--green-dim)`;bt=`✓ OK`;}
+  return `<div class="dm-card" id="dmc_${dm.id}">
+    <div class="dm-card-header" onclick="toggleDM('${dm.id}')">
+      <div class="dm-icon" style="background:${cat.color}20;border:1px solid ${cat.color}44;">${cat.icon}</div>
+      <span class="dm-title" style="color:${cat.color};">${cat.label.toUpperCase()}</span>
+      ${bt?`<span class="dm-badge" style="${bs}">${bt}</span>`:''}
+      <span class="dm-toggle" id="tog_${dm.id}">▲</span>
+    </div>
+    <div id="dmb_${dm.id}">
+      <table class="kpi-table">
+        <thead><tr>
+          <th style="width:32px;padding:8px 0;"></th>
+          <th>KPI</th>
+          <th class="center" style="width:90px;">Real</th>
+          <th class="center" style="width:90px;">Target</th>
+          <th class="center" style="width:110px;">Estatus</th>
+        </tr></thead>
+        <tbody>${dm.kpis.map(kpi=>renderKPIRow(sc,dm.id,dm.dmKey,kpi)).join('')}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function renderKPIRow(sc,dmId,dmKey,kpi){
+  const def=getKPIDef(kpi.key);
+  const target=getTarget(sc,dmKey,kpi.key);
+  const sg=kpi.status==='on-track'?'active-g':'';
+  const sy=kpi.status==='at-risk'?'active-y':'';
+  const sr=kpi.status==='off-track'?'active-r':'';
+  const hasNotes=kpi.affectation||kpi.actionPlan;
+  const rowCls=kpi.status==='off-track'?'status-off':kpi.status==='at-risk'?'status-risk':'';
+  const nameCls=hasNotes?'kpi-name-cell kpi-has-notes':'kpi-name-cell';
+  return `<tr class="kpi-row ${rowCls}">
+    <td colspan="5" style="padding:0;">
+      <div class="kpi-main-row">
+        <button class="kpi-expand-btn" id="expbtn_${kpi.key}_${dmId}"
+          onclick="toggleKPIDetail('${sc}','${dmId}','${kpi.key}')" title="${hasNotes?'Ver notas':'Agregar notas'}">
+          ${hasNotes?'📝':'＋'}
+        </button>
+        <span class="${nameCls}">${def.label}</span>
+        <div class="kpi-val-cell">
+          <input class="kpi-val-input" type="text" placeholder="—" value="${esc(kpi.value)}"
+            oninput="updateKPIVal('${sc}','${dmId}','${kpi.key}',this.value)">
+          <span class="kpi-unit">${def.unit}</span>
+        </div>
+        <div class="kpi-target-cell">
+          ${target
+            ? `<span class="kpi-target-val">${esc(target)}</span>`
+            : `<span class="kpi-target-empty">—</span>`}
+        </div>
+        <div class="kpi-status-cell">
+          <div class="status-toggle">
+            <button class="st-btn ${sg}" onclick="setKPISt('${sc}','${dmId}','${kpi.key}','on-track')">✓</button>
+            <button class="st-btn ${sy}" onclick="setKPISt('${sc}','${dmId}','${kpi.key}','at-risk')">⚠</button>
+            <button class="st-btn ${sr}" onclick="setKPISt('${sc}','${dmId}','${kpi.key}','off-track')">✗</button>
+          </div>
+        </div>
+      </div>
+      <div class="kpi-detail" id="kpidetail_${kpi.key}_${dmId}">
+        <div class="kpi-detail-inner">
+          <div class="detail-card">
+            <div class="detail-card-header"><span>⚠️</span><span class="detail-card-title">Afectación</span></div>
+            <textarea class="detail-textarea" placeholder="Describe la afectación..."
+              oninput="updateKPIField('${sc}','${dmId}','${kpi.key}','affectation',this.value)">${esc(kpi.affectation)}</textarea>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-header"><span>🎯</span><span class="detail-card-title">Plan de Acción</span></div>
+            <textarea class="detail-textarea" placeholder="Pasos o acciones correctivas..."
+              oninput="updateKPIField('${sc}','${dmId}','${kpi.key}','actionPlan',this.value)">${esc(kpi.actionPlan)}</textarea>
+          </div>
+        </div>
+      </div>
+    </td>
+  </tr>`;
+}
+
+/* ═══ KPI VIEW ═══ */
+function renderKPIView(sc){
+  const d=state.scs[sc];
+  const cards=KPI_CATALOG.map(kpiDef=>{
+    // only DMs that have this KPI
+    const relevantDMs=d.dms.filter(dm=>dm.kpis.some(k=>k.key===kpiDef.key));
+    if(!relevantDMs.length) return '';
+    const allOff=relevantDMs.filter(dm=>dm.kpis.find(k=>k.key===kpiDef.key)?.status==='off-track').length;
+    const allRisk=relevantDMs.filter(dm=>dm.kpis.find(k=>k.key===kpiDef.key)?.status==='at-risk').length;
+    const allFill=relevantDMs.filter(dm=>dm.kpis.find(k=>k.key===kpiDef.key)?.value).length;
+    let bs='',bt='';
+    if(allOff>0){bs=`color:var(--red);border-color:var(--red);background:var(--red-dim)`;bt=`${allOff} Off Track`;}
+    else if(allRisk>0){bs=`color:var(--yellow);border-color:var(--yellow);background:var(--yellow-dim)`;bt=`${allRisk} At Risk`;}
+    else if(allFill>0){bs=`color:var(--green);border-color:var(--green);background:var(--green-dim)`;bt=`✓ OK`;}
+
+    const dmRows=relevantDMs.map(dm=>{
+      const cat=getDMCat(dm.dmKey);
+      const kpi=dm.kpis.find(k=>k.key===kpiDef.key);
+      const target=getTarget(sc,dm.dmKey,kpiDef.key);
+      const sg=kpi.status==='on-track'?'active-g':'';
+      const sy=kpi.status==='at-risk'?'active-y':'';
+      const sr=kpi.status==='off-track'?'active-r':'';
+      const hasNotes=kpi.affectation||kpi.actionPlan;
+      return `<div>
+        <div class="dm-row">
+          <button class="dm-row-expand" id="kv_exp_${kpiDef.key}_${dm.id}"
+            onclick="toggleKVDetail('${sc}','${dm.id}','${kpiDef.key}')">${hasNotes?'📝':'＋'}</button>
+          <div class="dm-row-label">
+            <span class="dm-row-icon">${cat.icon}</span>
+            <span class="dm-row-name" style="color:${cat.color};">${cat.label.toUpperCase()}</span>
+          </div>
+          <div class="dm-row-val">
+            <input class="kpi-val-input" type="text" placeholder="—" value="${esc(kpi.value)}"
+              oninput="updateKPIVal('${sc}','${dm.id}','${kpiDef.key}',this.value)">
+            <span class="kpi-unit">${kpiDef.unit}</span>
+          </div>
+          <div class="dm-row-target">
+            ${target?`<span class="kpi-target-val">${esc(target)}</span>`:`<span class="kpi-target-empty">—</span>`}
+          </div>
+          <div class="dm-row-status">
+            <div class="status-toggle">
+              <button class="st-btn ${sg}" onclick="setKPISt('${sc}','${dm.id}','${kpiDef.key}','on-track')">✓</button>
+              <button class="st-btn ${sy}" onclick="setKPISt('${sc}','${dm.id}','${kpiDef.key}','at-risk')">⚠</button>
+              <button class="st-btn ${sr}" onclick="setKPISt('${sc}','${dm.id}','${kpiDef.key}','off-track')">✗</button>
+            </div>
+          </div>
+        </div>
+        <div class="dm-row-detail" id="kv_detail_${kpiDef.key}_${dm.id}">
+          <div class="kpi-detail-inner">
+            <div class="detail-card">
+              <div class="detail-card-header"><span>⚠️</span><span class="detail-card-title">Afectación</span></div>
+              <textarea class="detail-textarea" placeholder="Describe la afectación..."
+                oninput="updateKPIField('${sc}','${dm.id}','${kpiDef.key}','affectation',this.value)">${esc(kpi.affectation)}</textarea>
+            </div>
+            <div class="detail-card">
+              <div class="detail-card-header"><span>🎯</span><span class="detail-card-title">Plan de Acción</span></div>
+              <textarea class="detail-textarea" placeholder="Pasos o acciones correctivas..."
+                oninput="updateKPIField('${sc}','${dm.id}','${kpiDef.key}','actionPlan',this.value)">${esc(kpi.actionPlan)}</textarea>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+
+    // SC-level real value (stored in state)
+    const scKpiState = state.scs[sc].scKpis = state.scs[sc].scKpis || {};
+    const scKpiVal = scKpiState[kpiDef.key]?.value || '';
+    const scKpiSt  = scKpiState[kpiDef.key]?.status || '';
+    const scTarget = TARGETS[sc]?.[kpiDef.key] || '';
+    const scSg=scKpiSt==='on-track'?'active-g':'';
+    const scSy=scKpiSt==='at-risk'?'active-y':'';
+    const scSr=scKpiSt==='off-track'?'active-r':'';
+
+    const thStyle='font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ml-blue);padding:7px 12px;border-bottom:2px solid var(--ml-yellow);background:var(--ml-blue-light);';
+    const thBorder='border-left:1px solid var(--border);';
+
+    return `<div class="kpi-card" id="kpic_${sc}_${kpiDef.key}">
+      <div class="kpi-card-header" onclick="toggleKPICard('${sc}','${kpiDef.key}')">
+        <span class="kpi-card-title">${kpiDef.label}</span>
+        ${kpiDef.unit?`<span class="kpi-card-unit">${kpiDef.unit}</span>`:''}
+        ${bt?`<span class="kpi-card-badge" style="${bs}">${bt}</span>`:''}
+        <span class="kpi-card-toggle" id="kpic_tog_${sc}_${kpiDef.key}">▲</span>
+      </div>
+      <div id="kpic_body_${sc}_${kpiDef.key}">
+
+        <!-- SC Total row -->
+        <div style="display:grid;grid-template-columns:32px 160px 1fr 100px 110px;">
+          <div style="${thStyle}border-right:1px solid var(--border);"></div>
+          <div style="${thStyle}">Nivel</div>
+          <div style="${thStyle}${thBorder}text-align:right;">Real</div>
+          <div style="${thStyle}${thBorder}text-align:right;">Target</div>
+          <div style="${thStyle}${thBorder}text-align:center;">Estatus</div>
+        </div>
+        <div style="display:flex;align-items:center;min-height:46px;border-bottom:2px solid var(--ml-yellow);background:rgba(255,230,0,.06);">
+          <div style="width:32px;height:46px;flex-shrink:0;border-right:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:13px;">⭐</div>
+          <div style="width:160px;flex-shrink:0;padding:0 12px;border-right:1px solid var(--border);display:flex;align-items:center;gap:6px;">
+            <span style="font-size:11px;font-weight:800;color:var(--ml-blue);letter-spacing:.03em;">${sc} · TOTAL</span>
+          </div>
+          <div style="flex:1;padding:0 12px;display:flex;align-items:center;justify-content:flex-end;gap:4px;border-right:1px solid var(--border);">
+            <input class="kpi-val-input" type="text" placeholder="—" value="${esc(scKpiVal)}"
+              oninput="updateSCKPI('${sc}','${kpiDef.key}','value',this.value)"
+              style="font-size:15px;font-weight:800;color:var(--ml-blue);">
+            <span class="kpi-unit" style="color:var(--ml-blue);">${kpiDef.unit}</span>
+          </div>
+          <div style="width:100px;padding:0 12px;display:flex;align-items:center;justify-content:flex-end;border-right:1px solid var(--border);">
+            ${scTarget?`<span style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--ml-blue);">${esc(scTarget)}</span>`:`<span class="kpi-target-empty">—</span>`}
+          </div>
+          <div style="width:110px;padding:0 12px;display:flex;align-items:center;justify-content:center;">
+            <div class="status-toggle">
+              <button class="st-btn ${scSg}" onclick="updateSCKPI('${sc}','${kpiDef.key}','status','on-track')">✓</button>
+              <button class="st-btn ${scSy}" onclick="updateSCKPI('${sc}','${kpiDef.key}','status','at-risk')">⚠</button>
+              <button class="st-btn ${scSr}" onclick="updateSCKPI('${sc}','${kpiDef.key}','status','off-track')">✗</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- DM rows -->
+        <div style="display:grid;grid-template-columns:32px 160px 1fr 100px 110px;background:var(--surface2);border-bottom:1px solid var(--border);">
+          <div style="padding:6px 0;border-right:1px solid var(--border);"></div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);padding:6px 12px;">Delivery Model</div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);padding:6px 12px;text-align:right;border-left:1px solid var(--border);">Real</div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);padding:6px 12px;text-align:right;border-left:1px solid var(--border);">Target</div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);padding:6px 12px;text-align:center;border-left:1px solid var(--border);">Estatus</div>
+        </div>
+        ${dmRows}
+      </div>
+    </div>`;
+  }).join('');
+
+  return `<div class="kpi-view">${cards}</div>`;
+}
+
+/* ═══ PLANES ═══ */
+function renderPlanesPanel(){
+  const plans=allPlans();
+  const filtered=planesFilter==='all'?plans:plans.filter(p=>p.kpi.planStatus===planesFilter);
+  const cO=plans.filter(p=>p.kpi.planStatus==='open').length;
+  const cF=plans.filter(p=>p.kpi.planStatus==='follow').length;
+  const cC=plans.filter(p=>p.kpi.planStatus==='closed').length;
+  const fBtn=(k,l,c)=>`<button class="filter-btn ${planesFilter===k?'active-filter '+c:''}" onclick="setPlaneFilter('${k}')">${l}</button>`;
+  const cardsHtml=!filtered.length
+    ?`<div class="plans-empty-state"><div class="big-icon">🗂</div><p>No hay planes con este filtro.</p></div>`
+    :filtered.map(p=>{
+      const dm=getDMCat(p.dmKey),kpi=getKPIDef(p.kpiKey),pst=PLAN_STATUSES[p.kpi.planStatus||'open'];
+      return `<div class="plan-card">
+        <div class="plan-card-header">
+          <span class="plan-sc-badge">${esc(p.sc)}</span>
+          <span class="plan-dm-badge" style="color:${dm.color};border-color:${dm.color}55;background:${dm.color}11;">${dm.icon} ${dm.label}</span>
+          <span class="plan-kpi-name">${kpi.label}</span>
+          <select class="plan-status-sel ${pst.selCls}" onchange="setPlanStatus('${p.sc}','${p.dmId}','${p.kpiKey}',this.value)">
+            <option value="open"   ${p.kpi.planStatus==='open'?'selected':''}>🔴 Abierto</option>
+            <option value="follow" ${p.kpi.planStatus==='follow'?'selected':''}>🟡 En Seguimiento</option>
+            <option value="closed" ${p.kpi.planStatus==='closed'?'selected':''}>🟢 Cerrado</option>
+          </select>
+        </div>
+        <div class="plan-body">
+          <div class="plan-section"><div class="plan-sec-title"><span>⚠️</span>Afectación</div>
+            ${p.kpi.affectation?`<div class="plan-text">${esc(p.kpi.affectation)}</div>`:`<div class="plan-empty">Sin afectación registrada</div>`}
+          </div>
+          <div class="plan-section"><div class="plan-sec-title"><span>🎯</span>Plan de Acción</div>
+            ${p.kpi.actionPlan?`<div class="plan-text">${esc(p.kpi.actionPlan)}</div>`:`<div class="plan-empty">Sin plan registrado</div>`}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+
+  document.getElementById('planesPanel').innerHTML=`
+    <div class="planes-header">
+      <div class="planes-title">🗂 Planes de Acción</div>
+      <div class="planes-filters">
+        ${fBtn('all',`Todos (${plans.length})`,'f-all')}
+        ${fBtn('open',`🔴 Abiertos (${cO})`,'f-open')}
+        ${fBtn('follow',`🟡 Seguimiento (${cF})`,'f-follow')}
+        ${fBtn('closed',`🟢 Cerrados (${cC})`,'f-closed')}
+      </div>
+    </div>
+    <div class="planes-stats">
+      <div class="pstat s-total"><span class="pstat-num">${plans.length}</span><span class="pstat-lbl">Total</span></div>
+      <div class="pstat s-open"><span class="pstat-num">${cO}</span><span class="pstat-lbl">Abiertos</span></div>
+      <div class="pstat s-follow"><span class="pstat-num">${cF}</span><span class="pstat-lbl">En Seguimiento</span></div>
+      <div class="pstat s-closed"><span class="pstat-num">${cC}</span><span class="pstat-lbl">Cerrados</span></div>
+    </div>
+    <div class="planes-list">${cardsHtml}</div>`;
+}
+
+function setPlaneFilter(f){planesFilter=f;renderPlanesPanel();}
+function setPlanStatus(sc,dmId,kpiKey,status){
+  const dm=state.scs[sc].dms.find(d=>d.id===dmId);if(!dm)return;
+  const kpi=dm.kpis.find(k=>k.key===kpiKey);if(kpi) kpi.planStatus=status;
+  renderTabs();renderSummary();scheduleSave();if(activeView==='PLANES') renderPlanesPanel();
+}
+
+/* ═══ SUMMARY ═══ */
+function renderSummary(){
+  let on=0,risk=0,off=0;
+  const plans=allPlans();
+  const pO=plans.filter(p=>p.kpi.planStatus==='open').length;
+  const pF=plans.filter(p=>p.kpi.planStatus==='follow').length;
+  const pC=plans.filter(p=>p.kpi.planStatus==='closed').length;
+  SCS.forEach(sc=>state.scs[sc].dms.forEach(dm=>dm.kpis.forEach(k=>{
+    if(k.status==='on-track')  on++;
+    if(k.status==='at-risk')   risk++;
+    if(k.status==='off-track') off++;
+  })));
+  let vf='';
+  if(activeView.startsWith('SC_')){
+    const sc=activeView.replace('SC_','');
+    const v=state.scs[sc]?.volumen||'—',f=state.scs[sc]?.forecast||'—';
+    vf=`<div class="divider"></div>
+      <div class="chip" style="border-color:rgba(79,124,255,.35)">📊 Vol: <strong style="color:var(--accent);margin-left:4px;">${esc(v)}</strong></div>
+      <div class="chip" style="border-color:rgba(34,197,94,.35)">🎯 Fore: <strong style="color:var(--green);margin-left:4px;">${esc(f)}</strong></div>`;
+  }
+  document.getElementById('summaryBar').innerHTML=`
+    <div class="chip g"><span class="chip-dot"></span>${on} On Track</div>
+    <div class="chip y"><span class="chip-dot"></span>${risk} At Risk</div>
+    <div class="chip r"><span class="chip-dot"></span>${off} Off Track</div>
+    <div class="divider"></div>
+    <div class="chip r" style="cursor:pointer" onclick="setView('PLANES')">🔴 ${pO} abiertos</div>
+    <div class="chip y" style="cursor:pointer" onclick="setView('PLANES')">🟡 ${pF} seguimiento</div>
+    <div class="chip g" style="cursor:pointer" onclick="setView('PLANES')">🟢 ${pC} cerrados</div>
+    ${vf}`;
+}
+
+/* ═══ INTERACTIONS ═══ */
+function toggleDM(id){
+  const b=document.getElementById('dmb_'+id),t=document.getElementById('tog_'+id);
+  if(!b)return;const h=b.style.display==='none';b.style.display=h?'':'none';t.textContent=h?'▲':'▼';
+}
+function toggleKPICard(sc,kpiKey){
+  const b=document.getElementById(`kpic_body_${sc}_${kpiKey}`);
+  const t=document.getElementById(`kpic_tog_${sc}_${kpiKey}`);
+  if(!b)return;const h=b.style.display==='none';b.style.display=h?'':'none';t.textContent=h?'▲':'▼';
+}
+function toggleKPIDetail(sc,dmId,kpiKey){
+  const p=document.getElementById(`kpidetail_${kpiKey}_${dmId}`);
+  const b=document.getElementById(`expbtn_${kpiKey}_${dmId}`);
+  if(!p)return;const o=p.classList.contains('open');
+  p.classList.toggle('open',!o);if(b)b.classList.toggle('open',!o);
+}
+function toggleKVDetail(sc,dmId,kpiKey){
+  const p=document.getElementById(`kv_detail_${kpiKey}_${dmId}`);
+  const b=document.getElementById(`kv_exp_${kpiKey}_${dmId}`);
+  if(!p)return;const o=p.classList.contains('open');
+  p.classList.toggle('open',!o);if(b)b.classList.toggle('open',!o);
+}
+function updateKPIVal(sc,dmId,kpiKey,val){
+  const dm=state.scs[sc].dms.find(d=>d.id===dmId);if(!dm)return;
+  const kpi=dm.kpis.find(k=>k.key===kpiKey);if(kpi){kpi.value=val;renderTabs();scheduleSave();}
+}
+function setKPISt(sc,dmId,kpiKey,status){
+  const dm=state.scs[sc].dms.find(d=>d.id===dmId);if(!dm)return;
+  const kpi=dm.kpis.find(k=>k.key===kpiKey);if(!kpi)return;
+  kpi.status=kpi.status===status?'':status;
+  const vm=state.scs[sc].viewMode||'dm';
+  const el=document.getElementById('scContent_'+sc);
+  if(el)el.innerHTML=vm==='dm'?renderDMView(sc):renderKPIView(sc);
+  renderTabs();renderSummary();scheduleSave();
+}
+function updateKPIField(sc,dmId,kpiKey,field,val){
+  const dm=state.scs[sc].dms.find(d=>d.id===dmId);if(!dm)return;
+  const kpi=dm.kpis.find(k=>k.key===kpiKey);if(kpi){kpi[field]=val;renderTabs();renderSummary();scheduleSave();}
+}
+
+/* ═══ SC-LEVEL KPI ═══ */
+function updateSCKPI(sc, kpiKey, field, val){
+  if(!state.scs[sc].scKpis) state.scs[sc].scKpis={};
+  if(!state.scs[sc].scKpis[kpiKey]) state.scs[sc].scKpis[kpiKey]={value:'',status:''};
+  const prev = state.scs[sc].scKpis[kpiKey][field];
+  if(field==='status') state.scs[sc].scKpis[kpiKey][field] = prev===val ? '' : val;
+  else state.scs[sc].scKpis[kpiKey][field] = val;
+  const vm = state.scs[sc].viewMode||'dm';
+  if(vm==='kpi'){
+    const el=document.getElementById('scContent_'+sc);
+    if(el) el.innerHTML=renderKPIView(sc);
+  }
+  renderTabs(); renderSummary(); scheduleSave();
+}
+
+/* ═══ GOOGLE SHEETS SYNC ═══ */
+const GS_URL = 'https://script.google.com/a/macros/mercadolibre.com.mx/s/AKfycbzhwNqLE0q68MUbJlrVHmFHTeRBC1Hm2n9ln-MVTakBjaGjb8JZdKxfZKipToCNrXMz/exec';
+let syncTimer = null;
+let isSyncing = false;
+let lastSaved = null;
+
+function showSyncStatus(msg, color='#2D3277'){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = color;
+  t.style.color = color === '#FFE600' ? '#2D3277' : '#fff';
+  t.style.borderColor = '#FFE600';
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 3000);
+}
+
+// Auto-save 2s after last change
+function scheduleSave(){
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(()=>saveAll(), 2000);
+  // show pending indicator
+  const btn = document.getElementById('saveBtn');
+  if(btn) btn.textContent = '⏳ Guardando...';
+}
+
+async function saveAll(){
+  if(isSyncing) return;
+  isSyncing = true;
+  const btn = document.getElementById('saveBtn');
+  if(btn){ btn.textContent = '⏳ Guardando...'; btn.disabled = true; }
+  try {
+    const payload = { state: state, savedAt: new Date().toISOString() };
+    // no-cors evita el preflight CORS con Apps Script
+    await fetch(GS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      body: JSON.stringify(payload),
+      headers: { 'Content-Type': 'text/plain' }
+    });
+    // con no-cors la respuesta es opaca pero el POST sí llega a Sheets
+    lastSaved = new Date();
+    showSyncStatus('✓ Guardado en Sheets', '#FFE600');
+    try{ localStorage.setItem('dob_v6', JSON.stringify(state)); }catch(e){}
+  } catch(err){
+    try{ localStorage.setItem('dob_v6', JSON.stringify(state)); }catch(e){}
+    showSyncStatus('📴 Sin conexión — guardado local', '#E3262F');
+  }
+  if(btn){ btn.textContent = '💾 Guardar'; btn.disabled = false; }
+  isSyncing = false;
+  renderTabs(); renderSummary();
+}
+
+async function loadFromSheets(){
+  showSyncStatus('🔄 Cargando datos...', '#2D3277');
+  try {
+    const res = await fetch(GS_URL + '?t=' + Date.now());
+    const json = await res.json();
+    if(json.ok && json.data && json.data.state){
+      const remote = json.data.state;
+      mergeState(remote);
+      showSyncStatus('✓ Datos actualizados', '#FFE600');
+    } else {
+      showSyncStatus('ℹ Sin datos remotos aún', '#2D3277');
+    }
+  } catch(err){
+    showSyncStatus('📴 Sin conexión — usando datos locales', '#E3262F');
+  }
+  renderTabs(); renderScPanels(); renderSummary();
+}
+
+function mergeState(remote){
+  if(!remote || !remote.scs) return;
+  SCS.forEach(sc => {
+    if(!remote.scs[sc]) return;
+    const r = remote.scs[sc];
+    state.scs[sc].leader   = r.leader   || '';
+    state.scs[sc].volumen  = r.volumen  || '';
+    state.scs[sc].forecast = r.forecast || '';
+    state.scs[sc].viewMode = r.viewMode || 'dm';
+    state.scs[sc].scKpis   = r.scKpis   || {};
+    if(r.dms) {
+      r.dms.forEach(rdm => {
+        const ldm = state.scs[sc].dms.find(d => d.dmKey === rdm.dmKey);
+        if(!ldm) return;
+        if(rdm.kpis) rdm.kpis.forEach(rk => {
+          const lk = ldm.kpis.find(k => k.key === rk.key);
+          if(lk){
+            lk.value       = rk.value       || '';
+            lk.status      = rk.status      || '';
+            lk.affectation = rk.affectation || '';
+            lk.actionPlan  = rk.actionPlan  || '';
+            lk.planStatus  = rk.planStatus  || 'open';
+          }
+        });
+      });
+    }
+  });
+}
+
+// Auto-refresh every 60 seconds to pick up changes from other users
+setInterval(async ()=>{
+  if(isSyncing) return;
+  try{
+    const res = await fetch(GS_URL + '?t=' + Date.now());
+    const json = await res.json();
+    if(json.ok && json.data && json.data.state){
+      mergeState(json.data.state);
+      try{ localStorage.setItem('dob_v6', JSON.stringify(state)); }catch(e){}
+      renderTabs(); renderSummary();
+      // silently refresh active panel
+      if(activeView.startsWith('SC_')){
+        const sc = activeView.replace('SC_','');
+        const vm = state.scs[sc].viewMode||'dm';
+        const el = document.getElementById('scContent_'+sc);
+        if(el) el.innerHTML = vm==='dm' ? renderDMView(sc) : renderKPIView(sc);
+      }
+      if(activeView==='PLANES') renderPlanesPanel();
+    }
+  }catch(e){}
+}, 60000);
+
+/* ═══ INIT ═══ */
+document.getElementById('dateBadge').textContent = todayStr();
+// Load from Sheets first, fall back to localStorage while loading
+renderTabs(); renderScPanels(); renderSummary();
+loadFromSheets();
+</script>
+</body>
+</html>
