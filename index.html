@@ -816,11 +816,19 @@ function updateSCKPI(sc, kpiKey, field, val){
   renderTabs(); renderSummary(); scheduleSave();
 }
 
-/* ═══ GOOGLE SHEETS SYNC ═══ */
-const GS_URL = 'https://script.google.com/a/macros/mercadolibre.com.mx/s/AKfycbzhwNqLE0q68MUbJlrVHmFHTeRBC1Hm2n9ln-MVTakBjaGjb8JZdKxfZKipToCNrXMz/exec';
-let syncTimer = null;
-let isSyncing = false;
-let lastSaved = null;
+
+/* ═══ SUPABASE SYNC ═══ */
+const SB_URL  = 'https://gumqnmetsgohvgmclth.supabase.co';
+const SB_KEY  = 'sb_publishable_UoXHxmgfOkNGUi6f6uOFCg_E1dvBlZg';
+const SB_HEADERS = {
+  'Content-Type': 'application/json',
+  'apikey': SB_KEY,
+  'Authorization': 'Bearer ' + SB_KEY,
+  'Prefer': 'return=minimal'
+};
+
+let syncTimer  = null;
+let isSyncing  = false;
 
 function showSyncStatus(msg, color='#2D3277'){
   const t = document.getElementById('toast');
@@ -832,11 +840,9 @@ function showSyncStatus(msg, color='#2D3277'){
   setTimeout(()=>t.classList.remove('show'), 3000);
 }
 
-// Auto-save 2s after last change
 function scheduleSave(){
   clearTimeout(syncTimer);
   syncTimer = setTimeout(()=>saveAll(), 2000);
-  // show pending indicator
   const btn = document.getElementById('saveBtn');
   if(btn) btn.textContent = '⏳ Guardando...';
 }
@@ -846,21 +852,23 @@ async function saveAll(){
   isSyncing = true;
   const btn = document.getElementById('saveBtn');
   if(btn){ btn.textContent = '⏳ Guardando...'; btn.disabled = true; }
-  try {
-    const payload = { state: state, savedAt: new Date().toISOString() };
-    // no-cors evita el preflight CORS con Apps Script
-    await fetch(GS_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      body: JSON.stringify(payload),
-      headers: { 'Content-Type': 'text/plain' }
+  try{
+    const body = JSON.stringify({ id: 1, data: JSON.stringify(state), updated_at: new Date().toISOString() });
+    const res = await fetch(`${SB_URL}/rest/v1/board_state?id=eq.1`, {
+      method: 'PATCH',
+      headers: SB_HEADERS,
+      body
     });
-    // con no-cors la respuesta es opaca pero el POST sí llega a Sheets
-    lastSaved = new Date();
-    showSyncStatus('✓ Guardado en Sheets', '#FFE600');
-    try{ localStorage.setItem('dob_v6', JSON.stringify(state)); }catch(e){}
+    if(res.ok){
+      showSyncStatus('✓ Guardado', '#FFE600');
+      try{ localStorage.setItem('dob_v7', JSON.stringify(state)); }catch(e){}
+    } else {
+      const err = await res.text();
+      console.error('Supabase save error:', err);
+      showSyncStatus('⚠ Error al guardar', '#E3262F');
+    }
   } catch(err){
-    try{ localStorage.setItem('dob_v6', JSON.stringify(state)); }catch(e){}
+    try{ localStorage.setItem('dob_v7', JSON.stringify(state)); }catch(e){}
     showSyncStatus('📴 Sin conexión — guardado local', '#E3262F');
   }
   if(btn){ btn.textContent = '💾 Guardar'; btn.disabled = false; }
@@ -870,17 +878,25 @@ async function saveAll(){
 
 async function loadFromSheets(){
   showSyncStatus('🔄 Cargando datos...', '#2D3277');
-  try {
-    const res = await fetch(GS_URL + '?t=' + Date.now());
-    const json = await res.json();
-    if(json.ok && json.data && json.data.state){
-      const remote = json.data.state;
-      mergeState(remote);
-      showSyncStatus('✓ Datos actualizados', '#FFE600');
+  try{
+    const res = await fetch(`${SB_URL}/rest/v1/board_state?id=eq.1&select=data`, {
+      headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY }
+    });
+    const rows = await res.json();
+    if(rows && rows.length && rows[0].data){
+      const remote = JSON.parse(rows[0].data);
+      if(remote && remote.scs){
+        mergeState(remote);
+        showSyncStatus('✓ Datos actualizados', '#FFE600');
+        try{ localStorage.setItem('dob_v7', JSON.stringify(state)); }catch(e){}
+      } else {
+        showSyncStatus('ℹ Sin datos remotos aún', '#2D3277');
+      }
     } else {
       showSyncStatus('ℹ Sin datos remotos aún', '#2D3277');
     }
   } catch(err){
+    console.error('Load error:', err);
     showSyncStatus('📴 Sin conexión — usando datos locales', '#E3262F');
   }
   renderTabs(); renderScPanels(); renderSummary();
@@ -896,7 +912,7 @@ function mergeState(remote){
     state.scs[sc].forecast = r.forecast || '';
     state.scs[sc].viewMode = r.viewMode || 'dm';
     state.scs[sc].scKpis   = r.scKpis   || {};
-    if(r.dms) {
+    if(r.dms){
       r.dms.forEach(rdm => {
         const ldm = state.scs[sc].dms.find(d => d.dmKey === rdm.dmKey);
         if(!ldm) return;
@@ -915,31 +931,34 @@ function mergeState(remote){
   });
 }
 
-// Auto-refresh every 60 seconds to pick up changes from other users
+// Auto-refresh every 30 seconds
 setInterval(async ()=>{
   if(isSyncing) return;
   try{
-    const res = await fetch(GS_URL + '?t=' + Date.now());
-    const json = await res.json();
-    if(json.ok && json.data && json.data.state){
-      mergeState(json.data.state);
-      try{ localStorage.setItem('dob_v6', JSON.stringify(state)); }catch(e){}
-      renderTabs(); renderSummary();
-      // silently refresh active panel
-      if(activeView.startsWith('SC_')){
-        const sc = activeView.replace('SC_','');
-        const vm = state.scs[sc].viewMode||'dm';
-        const el = document.getElementById('scContent_'+sc);
-        if(el) el.innerHTML = vm==='dm' ? renderDMView(sc) : renderKPIView(sc);
+    const res = await fetch(`${SB_URL}/rest/v1/board_state?id=eq.1&select=data`, {
+      headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY }
+    });
+    const rows = await res.json();
+    if(rows && rows.length && rows[0].data){
+      const remote = JSON.parse(rows[0].data);
+      if(remote && remote.scs){
+        mergeState(remote);
+        try{ localStorage.setItem('dob_v7', JSON.stringify(state)); }catch(e){}
+        renderTabs(); renderSummary();
+        if(activeView.startsWith('SC_')){
+          const sc = activeView.replace('SC_','');
+          const vm = state.scs[sc].viewMode||'dm';
+          const el = document.getElementById('scContent_'+sc);
+          if(el) el.innerHTML = vm==='dm' ? renderDMView(sc) : renderKPIView(sc);
+        }
+        if(activeView==='PLANES') renderPlanesPanel();
       }
-      if(activeView==='PLANES') renderPlanesPanel();
     }
   }catch(e){}
-}, 60000);
+}, 30000);
 
 /* ═══ INIT ═══ */
 document.getElementById('dateBadge').textContent = todayStr();
-// Load from Sheets first, fall back to localStorage while loading
 renderTabs(); renderScPanels(); renderSummary();
 loadFromSheets();
 </script>
